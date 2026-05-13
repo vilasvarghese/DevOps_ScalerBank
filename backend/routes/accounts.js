@@ -45,17 +45,18 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
   const db = await getDb();
   const { currency = 'INR', accountType = 'savings' } = req.body;
+  const openingBalance = currency === 'USD' ? 500 : 50000;
   
   const accountId = uuidv4();
   const accountNumber = 'SB' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000);
   
   db.run(
     "INSERT INTO accounts (id, user_id, account_number, account_type, currency, balance) VALUES (?, ?, ?, ?, ?, ?)",
-    [accountId, req.user.id, accountNumber, accountType, currency, 0]
+    [accountId, req.user.id, accountNumber, accountType, currency, openingBalance]
   );
   saveDb();
   
-  res.status(201).json({ id: accountId, account_number: accountNumber, currency, balance: 0 });
+  res.status(201).json({ id: accountId, account_number: accountNumber, currency, balance: openingBalance });
 });
 
 module.exports = router;

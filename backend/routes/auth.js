@@ -187,17 +187,22 @@ function seedInitialTransactions(db, accountId, userId) {
         db.run("INSERT INTO ledger_entries (id, account_id, type, amount, reference_id, description, category, balance_after, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
           [ledgerId, accountId, 'CREDIT', amount, txId, 'Salary Credit', 'income', balance, dateStr]);
       } else {
-        balance -= amount;
+        const minBalance = 50000;
+        const maxDebit = Math.max(0, balance - minBalance);
+        if (maxDebit < 0.01) continue;
+        const debitAmount = Math.min(amount, maxDebit);
+        balance -= debitAmount;
         db.run("INSERT INTO transactions (id, from_account_id, amount, type, status, description, category, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-          [txId, accountId, amount, 'debit', 'completed', desc, cat, dateStr]);
+          [txId, accountId, debitAmount, 'debit', 'completed', desc, cat, dateStr]);
         db.run("INSERT INTO ledger_entries (id, account_id, type, amount, reference_id, description, category, balance_after, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          [ledgerId, accountId, 'DEBIT', amount, txId, desc, cat, balance, dateStr]);
+          [ledgerId, accountId, 'DEBIT', debitAmount, txId, desc, cat, balance, dateStr]);
       }
     }
   }
 
-  // Update actual balance
-  db.run("UPDATE accounts SET balance = ? WHERE id = ?", [Math.round(balance * 100) / 100, accountId]);
+  // Ensure opening balance never drops below onboarding credit (synthetic history cannot overdraw)
+  balance = Math.max(50000, Math.round(balance * 100) / 100);
+  db.run("UPDATE accounts SET balance = ? WHERE id = ?", [balance, accountId]);
 }
 
 module.exports = router;
